@@ -1,7 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL Test</title>
+  </head>
   <body>
     <canvas id="webgl" width="800" height="800">浏览器不支持HTML5</canvas>
-    <script src="./src/core/controller.ts" type="module"></script>
+    <button id="btn">测试绘制</button>
+    
+    <!-- 只保留一个入口脚本 -->
+    <script src="./src/class/tool/test.ts" type="module"></script>
+    
+    <!-- 添加调试信息 -->
+    <div id="debug" style="margin-top: 20px; font-family: monospace;"></div>
+    <script>
+      // 简单的调试日志
+      function log(msg) {
+        console.log(msg);
+        const debug = document.getElementById('debug');
+        if (debug) {
+          const line = document.createElement('div');
+          line.textContent = new Date().toLocaleTimeString() + ': ' + msg;
+          debug.appendChild(line);
+        }
+      }
+      
+      // 页面加载完成时记录
+      window.addEventListener('load', () => {
+        log('Page fully loaded');
+      });
+    </script>
   </body>
 </html>

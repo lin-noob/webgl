@@ -1,4 +1,4 @@
-import { vec4 } from "gl-matrix";
+import { vec4, glMatrix } from "gl-matrix";
 import { GraphicType } from "../../utils/get";
 
 export default abstract class Component {
@@ -16,7 +16,7 @@ export default abstract class Component {
     if (v1 instanceof Component || typeof v1 === "object") {
       this.componentInit1(v1);
     } else {
-      this.componentInit2();
+      this.componentInit2(v2);
     }
   }
 
@@ -30,8 +30,15 @@ export default abstract class Component {
     this.mirrorY = wData.mirrorY;
   }
 
-  componentInit2() {
-    
+  componentInit2(data) {
+    this.lineWidth = data.lineWidth ?? 10;
+    this.color = data.color ?? [255, 0, 0, 1];
+    if (data.type) {
+      this.type = data.type;
+    }
+    this.angle = data.angle ?? 0;
+    this.mirrorX = data.mirrorX ?? false;
+    this.mirrorY = data.mirrorY ?? false;
   }
 
   abstract paint(): void;

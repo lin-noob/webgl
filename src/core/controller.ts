@@ -23,5 +23,6 @@ export default class Controller {
       element.paint();
     }
     this.render.gal.flush();
+    this.render.gal.render();
   }
 }
