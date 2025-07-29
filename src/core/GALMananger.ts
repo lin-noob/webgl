@@ -28,6 +28,21 @@ export class GALMananger {
   private indexUsed = 0;
   private drawCommands: DrawCommand[] = [];
 
+  // 定义类的属性，用于存储坐标系统参数
+  private unitSize: number = 1; // 单位距离，如1mil
+  private scale: number = 1;    // 缩放比例
+  private panX: number = 0;     // 平移X
+  private panY: number = 0;     // 平移Y
+
+  // 设置单位大小和缩放比例
+  public setCoordinateSystem(unitSize: number, scale: number, panX: number = 0, panY: number = 0): void {
+    this.unitSize = unitSize;
+    this.scale = scale;
+    this.panX = panX;
+    this.panY = panY;
+    this.setupProjection(); // 重新计算投影矩阵
+  }
+
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { antialias: true });
     if (!gl) {
@@ -48,22 +63,40 @@ export class GALMananger {
     // 使用gl-matrix库创建正交投影矩阵
     const matrix = mat4.create();
 
-    // 创建一个简单的正交投影
-    // 注意：WebGL的坐标系是右手坐标系，Y轴向上为正
+    // 计算视口范围
+    const canvasWidth = this.canvas.width;
+    const canvasHeight = this.canvas.height;
+    
+    // 计算数据坐标系范围
+    // 基于单位大小、缩放比例和画布尺寸计算
+    const effectiveScale = this.unitSize * this.scale;
+    const halfWidth = (canvasWidth / 2) / effectiveScale;
+    const halfHeight = (canvasHeight / 2) / effectiveScale;
+    
+    // 数据坐标系范围，考虑平移
+    const dataLeft = -halfWidth + this.panX;
+    const dataRight = halfWidth + this.panX;
+    const dataBottom = -halfHeight + this.panY;
+    const dataTop = halfHeight + this.panY;
+
+    // 创建一个正交投影，将数据坐标系映射到NDC坐标系(-1到1)
     mat4.ortho(
       matrix,
-      0, // left
-      this.canvas.width, // right
-      0, // bottom
-      this.canvas.height, // top
-      -1, // near
-      1 // far
+      dataLeft,     // 数据坐标系左边界
+      dataRight,    // 数据坐标系右边界
+      dataBottom,   // 数据坐标系下边界
+      dataTop,      // 数据坐标系上边界
+      -1,           // near裁剪面
+      1             // far裁剪面
     );
 
-    console.log(
-      `Setting up projection with canvas size: ${this.canvas.width}x${this.canvas.height}`
+    // 设置视口，确保WebGL渲染区域与canvas大小匹配
+    this.gal.gl.viewport(
+      0,
+      0,
+      this.gal.gl.canvas.width,
+      this.gal.gl.canvas.height
     );
-    console.log("Setting projection matrix:", matrix);
 
     // 转换为Float32Array并传递给着色器
     this.gal.setMatrix(new Float32Array(matrix));
@@ -71,12 +104,10 @@ export class GALMananger {
 
   // 获取或创建渲染批次
   private getBatch(mode: GLenum, batchType?: string): DrawCommand {
-    console.log(
-      `Getting batch for ${batchType}, current drawCommands:`,
-      this.drawCommands
-    );
 
-    let cmd = this.drawCommands.find((c) => c.batchType === batchType) as DrawCommand;
+    let cmd = this.drawCommands.find(
+      (c) => c.batchType === batchType
+    ) as DrawCommand;
     if (!cmd && batchType) {
       // 创建新批次，使用当前的vertUsed和indexUsed作为offset
       cmd = {
@@ -87,11 +118,10 @@ export class GALMananger {
         indexOffset: 0, // 始终从0开始
         indexCount: 0,
       };
-      console.log(`Created new batch: ${JSON.stringify(cmd)}`);
       this.drawCommands.push(cmd);
     } else {
       // 更新现有批次，确保offset是正确的
-      console.log(`Found existing batch: ${JSON.stringify(cmd)}`);
+      // console.log(`Found existing batch: ${JSON.stringify(cmd)}`);
     }
     return cmd;
   }
@@ -122,12 +152,9 @@ export class GALMananger {
     color: vec4,
     id?: string
   ): void {
-    console.log(
-      `GALMananger.addLine: from (${A.x}, ${A.y}) to (${B.x}, ${B.y}), width: ${width}, color:`,
-      color
-    );
 
-    const batchType = id;
+    // 使用固定的批次类型"line"，而不是使用id
+    const batchType = "line";
     this.resizeVertsIfNeeded(6 * 10);
     this.resizeIndicesIfNeeded(6);
 
@@ -137,7 +164,6 @@ export class GALMananger {
 
     const [r, g, b, a] = color;
     const vec4Color = colorFrom255(r, g, b, a);
-    console.log("Converted color:", vec4Color);
 
     const lineVerts = [
       A.x,
@@ -198,15 +224,9 @@ export class GALMananger {
     this.indexUsed += lineIndices.length;
 
     const cmd = this.getBatch(this.gal.gl.TRIANGLES, batchType);
-    cmd.vertCount = lineVerts.length / 10; // 每个顶点10个浮点数
-    cmd.indexCount = lineIndices.length;
-    cmd.indexOffset = vertOffset;
-    cmd.vertOffset = vertOffset;
-
-    console.log(
-      `Line added: vertOffset=${vertOffset}, vertCount=${cmd.vertCount}, indexOffset=${cmd.indexOffset}, indexCount=${cmd.indexCount}`
-    );
-    console.log("Current drawCommands:", this.drawCommands);
+    // 更新批次的顶点和索引计数，而不是覆盖它们
+    cmd.vertCount += lineVerts.length / 10; // 每个顶点10个浮点数
+    cmd.indexCount += lineIndices.length;
   }
 
   public addCircle(
@@ -253,7 +273,7 @@ export class GALMananger {
     this.indices.set(circleIndices, this.indexUsed);
     this.indexUsed += circleIndices.length;
 
-    const cmd = this.getBatch(batchType, this.gal.gl.TRIANGLES);
+    const cmd = this.getBatch(this.gal.gl.TRIANGLES, batchType);
     cmd.vertCount += circleVerts.length;
     cmd.indexCount += circleIndices.length;
   }
@@ -297,7 +317,7 @@ export class GALMananger {
     );
     this.indexUsed += triIndices.length;
 
-    const cmd = this.getBatch(batchType, this.gal.gl.TRIANGLES);
+    const cmd = this.getBatch(this.gal.gl.TRIANGLES, batchType);
     cmd.vertCount += numVerts * 10;
     cmd.indexCount += triIndices.length;
   }
@@ -331,46 +351,21 @@ export class GALMananger {
   }
 
   public flush(): void {
-    console.log(
-      "Flushing buffers - vertices:",
-      this.vertUsed,
-      "indices:",
-      this.indexUsed
-    );
 
     if (this.vertUsed > 0) {
       // 检查数据是否有效
       const vertData = this.verts.subarray(0, this.vertUsed);
-      console.log(
-        "Vertex data sample:",
-        vertData.slice(0, Math.min(20, this.vertUsed))
-      );
       this.gal.updateVBO(vertData, 0);
     }
 
     if (this.indexUsed > 0) {
       // 检查索引数据是否有效
       const indexData = this.indices.subarray(0, this.indexUsed);
-      console.log(
-        "Index data sample:",
-        indexData.slice(0, Math.min(20, this.indexUsed))
-      );
       this.gal.updateIBO(indexData, 0);
     }
   }
 
   public render(updateFn?: () => void): void {
-    console.log("Render called, commands:", this.drawCommands.length);
-
-    // 检查缓冲区状态
-    console.log(
-      "Buffer state - vertices:",
-      this.vertUsed,
-      "indices:",
-      this.indexUsed
-    );
-    console.log("Draw commands detail:", JSON.stringify(this.drawCommands));
-
     // 清除画布
     this.gal.clear();
 
@@ -390,8 +385,6 @@ export class GALMananger {
       indexCount: cmd.indexCount,
       indexOffset: cmd.indexOffset,
     }));
-
-    console.log("Prepared draw commands:", drawableCmds);
 
     // 执行绘制
     this.gal.draw(drawableCmds);

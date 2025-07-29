@@ -60,8 +60,6 @@ const vertices = [
 ];
 const FSIZE = Float32Array.BYTES_PER_ELEMENT;
 
-console.log("FSIZE", FSIZE);
-
 // 创建并绑定顶点缓冲区
 const vertexBuffer = gl.createBuffer();
 gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);

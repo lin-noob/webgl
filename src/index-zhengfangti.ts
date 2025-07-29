@@ -109,7 +109,6 @@ draw(gl);
 
 function initVertexBuffers(gl) {
   let FSIZE = 4;
-  console.log("FSIZE1", FSIZE);
   let positionsBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, positionsBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
