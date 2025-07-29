@@ -3,7 +3,10 @@ import { mat4, vec4 } from "gl-matrix";
 import earcut from "earcut";
 import { GAL } from "./gal";
 import { ShapShader, colorFrom255 } from "../utils/utils";
+// 导入shader文件，忽略类型检查
+// @ts-ignore
 import vertexShader from "../shaders/globalVertex.glsl";
+// @ts-ignore
 import fragmentShader from "../shaders/glovalFrag.glsl";
 
 interface DrawCommand {
@@ -42,32 +45,53 @@ export class GALMananger {
   }
 
   private setupProjection(): void {
+    // 使用gl-matrix库创建正交投影矩阵
     const matrix = mat4.create();
+
+    // 创建一个简单的正交投影
+    // 注意：WebGL的坐标系是右手坐标系，Y轴向上为正
     mat4.ortho(
       matrix,
-      -this.canvas.width / 2,
-      this.canvas.width / 2,
-      -this.canvas.height / 2,
-      this.canvas.height / 2,
-      -1,
-      1
+      0, // left
+      this.canvas.width, // right
+      0, // bottom
+      this.canvas.height, // top
+      -1, // near
+      1 // far
     );
-    this.gal.setMatrix(matrix);
+
+    console.log(
+      `Setting up projection with canvas size: ${this.canvas.width}x${this.canvas.height}`
+    );
+    console.log("Setting projection matrix:", matrix);
+
+    // 转换为Float32Array并传递给着色器
+    this.gal.setMatrix(new Float32Array(matrix));
   }
 
   // 获取或创建渲染批次
-  private getBatch(batchType: string, mode: GLenum): DrawCommand {
-    let cmd = this.drawCommands.find((c) => c.batchType === batchType);
-    if (!cmd) {
+  private getBatch(mode: GLenum, batchType?: string): DrawCommand {
+    console.log(
+      `Getting batch for ${batchType}, current drawCommands:`,
+      this.drawCommands
+    );
+
+    let cmd = this.drawCommands.find((c) => c.batchType === batchType) as DrawCommand;
+    if (!cmd && batchType) {
+      // 创建新批次，使用当前的vertUsed和indexUsed作为offset
       cmd = {
         batchType,
         mode,
-        vertOffset: this.vertUsed,
+        vertOffset: 0, // 始终从0开始，因为我们在addLine中清除了drawCommands
         vertCount: 0,
-        indexOffset: this.indexUsed,
+        indexOffset: 0, // 始终从0开始
         indexCount: 0,
       };
+      console.log(`Created new batch: ${JSON.stringify(cmd)}`);
       this.drawCommands.push(cmd);
+    } else {
+      // 更新现有批次，确保offset是正确的
+      console.log(`Found existing batch: ${JSON.stringify(cmd)}`);
     }
     return cmd;
   }
@@ -98,7 +122,12 @@ export class GALMananger {
     color: vec4,
     id?: string
   ): void {
-    const batchType = "line";
+    console.log(
+      `GALMananger.addLine: from (${A.x}, ${A.y}) to (${B.x}, ${B.y}), width: ${width}, color:`,
+      color
+    );
+
+    const batchType = id;
     this.resizeVertsIfNeeded(6 * 10);
     this.resizeIndicesIfNeeded(6);
 
@@ -108,6 +137,8 @@ export class GALMananger {
 
     const [r, g, b, a] = color;
     const vec4Color = colorFrom255(r, g, b, a);
+    console.log("Converted color:", vec4Color);
+
     const lineVerts = [
       A.x,
       A.y,
@@ -166,9 +197,16 @@ export class GALMananger {
     this.indices.set(lineIndices, this.indexUsed);
     this.indexUsed += lineIndices.length;
 
-    const cmd = this.getBatch(batchType, this.gal.gl.TRIANGLES);
-    cmd.vertCount += lineVerts.length;
-    cmd.indexCount += lineIndices.length;
+    const cmd = this.getBatch(this.gal.gl.TRIANGLES, batchType);
+    cmd.vertCount = lineVerts.length / 10; // 每个顶点10个浮点数
+    cmd.indexCount = lineIndices.length;
+    cmd.indexOffset = vertOffset;
+    cmd.vertOffset = vertOffset;
+
+    console.log(
+      `Line added: vertOffset=${vertOffset}, vertCount=${cmd.vertCount}, indexOffset=${cmd.indexOffset}, indexCount=${cmd.indexCount}`
+    );
+    console.log("Current drawCommands:", this.drawCommands);
   }
 
   public addCircle(
@@ -293,25 +331,78 @@ export class GALMananger {
   }
 
   public flush(): void {
-    this.gal.updateVBO(this.verts.subarray(0, this.vertUsed), 0);
-    this.gal.updateIBO(this.indices.subarray(0, this.indexUsed), 0);
+    console.log(
+      "Flushing buffers - vertices:",
+      this.vertUsed,
+      "indices:",
+      this.indexUsed
+    );
+
+    if (this.vertUsed > 0) {
+      // 检查数据是否有效
+      const vertData = this.verts.subarray(0, this.vertUsed);
+      console.log(
+        "Vertex data sample:",
+        vertData.slice(0, Math.min(20, this.vertUsed))
+      );
+      this.gal.updateVBO(vertData, 0);
+    }
+
+    if (this.indexUsed > 0) {
+      // 检查索引数据是否有效
+      const indexData = this.indices.subarray(0, this.indexUsed);
+      console.log(
+        "Index data sample:",
+        indexData.slice(0, Math.min(20, this.indexUsed))
+      );
+      this.gal.updateIBO(indexData, 0);
+    }
   }
 
   public render(updateFn?: () => void): void {
+    console.log("Render called, commands:", this.drawCommands.length);
+
+    // 检查缓冲区状态
+    console.log(
+      "Buffer state - vertices:",
+      this.vertUsed,
+      "indices:",
+      this.indexUsed
+    );
+    console.log("Draw commands detail:", JSON.stringify(this.drawCommands));
+
+    // 清除画布
     this.gal.clear();
 
     if (updateFn) {
       updateFn();
     }
 
+    // 检查是否有可绘制的命令
+    if (this.drawCommands.length === 0) {
+      console.warn("No draw commands to render");
+      return;
+    }
+
+    // 准备绘制命令
     const drawableCmds = this.drawCommands.map((cmd) => ({
       mode: cmd.mode,
       indexCount: cmd.indexCount,
       indexOffset: cmd.indexOffset,
     }));
 
+    console.log("Prepared draw commands:", drawableCmds);
+
+    // 执行绘制
     this.gal.draw(drawableCmds);
 
-    requestAnimationFrame(() => this.render(updateFn));
+    // 不使用requestAnimationFrame循环
+    // requestAnimationFrame(() => this.render(updateFn));
+  }
+
+  public clear(): void {
+    this.vertUsed = 0;
+    this.indexUsed = 0;
+    this.drawCommands = [];
   }
 }

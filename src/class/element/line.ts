@@ -44,6 +44,8 @@ export default class Line extends Component {
       y: this.y1,
     };
 
+    console.log(`Line.paint: Drawing line from (${this.x0}, ${this.y0}) to (${this.x1}, ${this.y1}), width: ${this.lineWidth}, color:`, this.color);
+    
     store.controller.render.drawLine(
       start,
       end,

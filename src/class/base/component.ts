@@ -16,7 +16,7 @@ export default abstract class Component {
     if (v1 instanceof Component || typeof v1 === "object") {
       this.componentInit1(v1);
     } else {
-      this.componentInit2(v2);
+      this.componentInit2(v1, v2);
     }
   }
 
@@ -30,7 +30,8 @@ export default abstract class Component {
     this.mirrorY = wData.mirrorY;
   }
 
-  componentInit2(data) {
+  componentInit2(id, data) {
+    this.id = id;
     this.lineWidth = data.lineWidth ?? 10;
     this.color = data.color ?? [255, 0, 0, 1];
     if (data.type) {

@@ -31,6 +31,7 @@ export default class Render {
     color: vec4,
     id?: string
   ) {
+    console.log(`Render.drawLine: from (${start.x}, ${start.y}) to (${end.x}, ${end.y}), width: ${lineWidth}, color:`, color);
     this.gal.addLine(start, end, lineWidth, color, id);
   }
 

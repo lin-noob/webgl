@@ -82,22 +82,90 @@ export class GAL {
         this.ibo.update(data, offsetBytes);
     }
 
-    public setMatrix(matrix: Float32Array): void {
+    public setMatrix(matrix): void {
         this.gl.uniformMatrix4fv(this.matrixLocation, false, matrix);
     }
     
     public clear(): void {
-        this.gl.clearColor(1, 1, 1, 1.0);
+        // 使用浅灰色背景，便于区分是否渲染成功
+        this.gl.clearColor(0.9, 0.9, 0.9, 1.0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        console.log("Canvas cleared with light gray background");
     }
 
     public draw(commands: DrawCommand[]): void {
+        console.log("Drawing commands:", commands);
+        
+        // 检查WebGL错误
+        let error = this.gl.getError();
+        if (error !== this.gl.NO_ERROR) {
+            console.error("WebGL error before draw:", error);
+        }
+        
+        // 设置视口
+        this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+        console.log(`Viewport set to: 0, 0, ${this.gl.canvas.width}, ${this.gl.canvas.height}`);
+        
+        // 确保VAO已绑定
         this.gl.bindVertexArray(this.vao);
+        console.log("VAO bound:", this.vao);
+        
+        // 确保程序已使用
+        this.gl.useProgram(this.program);
+        
+        // 检查VBO和IBO是否正确绑定
+        this.vbo.bind();
+        this.ibo.bind();
+        
+        // 检查是否有命令
+        if (commands.length === 0) {
+            console.warn("No draw commands provided");
+            return;
+        }
+        
+        // 先绘制实际命令
         for (const cmd of commands) {
             if (cmd.indexCount > 0) { // 只绘制有内容的批次
+                console.log("Drawing elements:", cmd.mode, cmd.indexCount, cmd.indexOffset * 4);
                 this.gl.drawElements(cmd.mode, cmd.indexCount, this.gl.UNSIGNED_INT, cmd.indexOffset * 4);
+                
+                // 检查绘制后的错误
+                error = this.gl.getError();
+                if (error !== this.gl.NO_ERROR) {
+                    console.error("WebGL error after draw:", error);
+                } else {
+                    console.log("Elements drawn successfully");
+                }
             }
         }
+        
+        // 如果没有成功渲染，尝试绘制一个测试三角形
+        if (commands.length === 0 || commands[0].indexCount === 0) {
+            // 绘制一个简单的三角形，确保渲染系统工作正常
+            console.log("Drawing a test triangle");
+            const testVertices = new Float32Array([
+                // x, y, r, g, b, a, mode, param1, param2, param3
+                -0.5, -0.5, 1, 0, 0, 1, 0, 0, 0, 0,  // 左下
+                 0.5, -0.5, 0, 1, 0, 1, 0, 0, 0, 0,  // 右下
+                 0.0,  0.5, 0, 0, 1, 1, 0, 0, 0, 0   // 顶部
+            ]);
+            this.updateVBO(testVertices, 0);
+            
+            const testIndices = new Uint32Array([0, 1, 2]);
+            this.updateIBO(testIndices, 0);
+            
+            // 绘制测试三角形
+            this.gl.drawElements(this.gl.TRIANGLES, 3, this.gl.UNSIGNED_INT, 0);
+            
+            // 检查绘制后的错误
+            error = this.gl.getError();
+            if (error !== this.gl.NO_ERROR) {
+                console.error("WebGL error after drawing test triangle:", error);
+            } else {
+                console.log("Test triangle drawn successfully");
+            }
+        }
+        
         this.gl.bindVertexArray(null);
     }
 }
