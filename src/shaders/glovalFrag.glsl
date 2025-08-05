@@ -60,6 +60,8 @@ void main() {
     if(abs(dist) > innerRadius && abs(dist) < outerRadius) {
       gl_FragColor = v_color;
       return;
+    }else {
+      discard;
     }
   } else {
     gl_FragColor = v_color;

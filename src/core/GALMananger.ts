@@ -30,12 +30,17 @@ export class GALMananger {
 
   // 定义类的属性，用于存储坐标系统参数
   private unitSize: number = 1; // 单位距离，如1mil
-  private scale: number = 1;    // 缩放比例
-  private panX: number = 0;     // 平移X
-  private panY: number = 0;     // 平移Y
+  private scale: number = 1; // 缩放比例
+  private panX: number = 0; // 平移X
+  private panY: number = 0; // 平移Y
 
   // 设置单位大小和缩放比例
-  public setCoordinateSystem(unitSize: number, scale: number, panX: number = 0, panY: number = 0): void {
+  public setCoordinateSystem(
+    unitSize: number,
+    scale: number,
+    panX: number = 0,
+    panY: number = 0
+  ): void {
     this.unitSize = unitSize;
     this.scale = scale;
     this.panX = panX;
@@ -66,13 +71,13 @@ export class GALMananger {
     // 计算视口范围
     const canvasWidth = this.canvas.width;
     const canvasHeight = this.canvas.height;
-    
+
     // 计算数据坐标系范围
     // 基于单位大小、缩放比例和画布尺寸计算
     const effectiveScale = this.unitSize * this.scale;
-    const halfWidth = (canvasWidth / 2) / effectiveScale;
-    const halfHeight = (canvasHeight / 2) / effectiveScale;
-    
+    const halfWidth = canvasWidth / 2 / effectiveScale;
+    const halfHeight = canvasHeight / 2 / effectiveScale;
+
     // 数据坐标系范围，考虑平移
     const dataLeft = -halfWidth + this.panX;
     const dataRight = halfWidth + this.panX;
@@ -82,12 +87,12 @@ export class GALMananger {
     // 创建一个正交投影，将数据坐标系映射到NDC坐标系(-1到1)
     mat4.ortho(
       matrix,
-      dataLeft,     // 数据坐标系左边界
-      dataRight,    // 数据坐标系右边界
-      dataBottom,   // 数据坐标系下边界
-      dataTop,      // 数据坐标系上边界
-      -1,           // near裁剪面
-      1             // far裁剪面
+      dataLeft, // 数据坐标系左边界
+      dataRight, // 数据坐标系右边界
+      dataBottom, // 数据坐标系下边界
+      dataTop, // 数据坐标系上边界
+      -1, // near裁剪面
+      1 // far裁剪面
     );
 
     // 设置视口，确保WebGL渲染区域与canvas大小匹配
@@ -104,7 +109,6 @@ export class GALMananger {
 
   // 获取或创建渲染批次
   private getBatch(mode: GLenum, batchType?: string): DrawCommand {
-
     let cmd = this.drawCommands.find(
       (c) => c.batchType === batchType
     ) as DrawCommand;
@@ -152,9 +156,8 @@ export class GALMananger {
     color: vec4,
     id?: string
   ): void {
-
     // 使用固定的批次类型"line"，而不是使用id
-    const batchType = "line";
+    const batchType = 'line';
     this.resizeVertsIfNeeded(6 * 10);
     this.resizeIndicesIfNeeded(6);
 
@@ -236,7 +239,7 @@ export class GALMananger {
     color: vec4,
     id?: string
   ): void {
-    const batchType = "circle";
+    const batchType = 'circle';
     this.resizeVertsIfNeeded(3 * 10);
     this.resizeIndicesIfNeeded(3);
 
@@ -351,7 +354,6 @@ export class GALMananger {
   }
 
   public flush(): void {
-
     if (this.vertUsed > 0) {
       // 检查数据是否有效
       const vertData = this.verts.subarray(0, this.vertUsed);

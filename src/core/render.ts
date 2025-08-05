@@ -1,6 +1,7 @@
 import { vec2, vec4 } from "gl-matrix";
 import { GALMananger } from "./galMananger";
 import { Vector2d } from "../utils/utils";
+import Grid from "../class/element/grid";
 
 export default class Render {
   public id: string;
@@ -13,6 +14,9 @@ export default class Render {
   private panY: number = 0;
   private zoomFactor: number = 1.1; // 每次缩放的倍数
 
+  // 背景格点
+  private grid: Grid | null = null;
+
   constructor(id: string) {
     this.id = id;
     const canvas = document.getElementById(id) as HTMLCanvasElement;
@@ -20,6 +24,70 @@ export default class Render {
       throw new Error("Canvas not found");
     }
     this.gal = new GALMananger(canvas);
+    
+    // 初始化默认格点
+    this.initGrid();
+  }
+
+  /**
+   * 初始化默认格点
+   */
+  private initGrid(): void {
+    this.grid = new Grid("background-grid", {
+      spacing: 1,          // 格点间距为1个单位
+      majorSpacing: 5,     // 每5个格点显示一个主格点
+      majorLineWidth: 1,   // 主格点线宽
+      minorLineWidth: 0.5, // 次格点线宽
+      majorColor: [0, 0, 0, 0.5] as vec4,  // 主格点颜色
+      minorColor: [0, 0, 0, 0.2] as vec4,  // 次格点颜色
+      densityThreshold: 0.5 // 缩放阈值
+    });
+  }
+
+  /**
+   * 设置格点参数
+   */
+  setGridOptions(options: {
+    spacing?: number;
+    majorSpacing?: number;
+    majorLineWidth?: number;
+    minorLineWidth?: number;
+    majorColor?: vec4;
+    minorColor?: vec4;
+    visible?: boolean;
+    densityThreshold?: number;
+  }): void {
+    if (!this.grid) {
+      this.initGrid();
+    }
+    
+    if (this.grid) {
+      // 更新格点参数
+      if (options.spacing !== undefined) this.grid.spacing = options.spacing;
+      if (options.majorSpacing !== undefined) this.grid.majorSpacing = options.majorSpacing;
+      if (options.majorLineWidth !== undefined) this.grid.majorLineWidth = options.majorLineWidth;
+      if (options.minorLineWidth !== undefined) this.grid.minorLineWidth = options.minorLineWidth;
+      if (options.majorColor !== undefined) this.grid.majorColor = options.majorColor;
+      if (options.minorColor !== undefined) this.grid.minorColor = options.minorColor;
+      if (options.visible !== undefined) this.grid.visible = options.visible;
+      if (options.densityThreshold !== undefined) this.grid.densityThreshold = options.densityThreshold;
+    }
+  }
+
+  /**
+   * 绘制背景格点
+   */
+  drawGrid(): void {
+    if (this.grid && this.grid.visible) {
+      this.grid.paint();
+    }
+  }
+
+  /**
+   * 获取格点对象
+   */
+  getGrid(): Grid | null {
+    return this.grid;
   }
 
   /**
@@ -96,7 +164,7 @@ export default class Render {
     this.scale *= factor;
     
     // 限制缩放范围，防止过度缩放
-    this.scale = Math.max(0.01, Math.min(100, this.scale));
+    this.scale = Math.max(0.1, Math.min(10, this.scale));
     
     // 调整平移量，使缩放中心保持不变
     const scaleFactor = this.scale / oldScale;
@@ -105,6 +173,7 @@ export default class Render {
     
     // 更新坐标系统
     this.gal.setCoordinateSystem(this.unitSize, this.scale, this.panX, this.panY);
+    console.log(this.scale);
   }
 
   /**

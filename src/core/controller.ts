@@ -54,10 +54,14 @@ export default class Controller {
     // 鼠标滚轮事件
     canvas.addEventListener("wheel", this.handleWheel.bind(this));
 
+    // 阻止右键菜单
+    canvas.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+    });
+
     // 键盘事件
     document.addEventListener("keydown", this.handleKeyDown.bind(this));
     document.addEventListener("keyup", this.handleKeyUp.bind(this));
-
   }
 
   /**
@@ -157,13 +161,18 @@ export default class Controller {
   }
 
   drawElements() {
+    // console.log(`Drawing ${this.graphicData.length} elements`);
 
     try {
       // 确保在绘制前清空画布和缓冲区
       this.render.gal.clear();
 
+      // 绘制背景格点
+   
+
       // 添加一个测试三角形，确保渲染系统工作正常
       if (this.graphicData.length === 0) {
+        console.log("No elements to draw, adding a test triangle");
         // 添加一个简单的红色三角形
         const A = { x: 100, y: 100 };
         const B = { x: 700, y: 100 };
@@ -176,15 +185,19 @@ export default class Controller {
       // 绘制每个元素
       for (let index = 0; index < this.graphicData.length; index++) {
         const element = this.graphicData[index];
+        // console.log(`Painting element ${index}:`, element);
         element.paint();
       }
-
+      this.render.drawGrid();
       // 刷新缓冲区
+      // console.log("Flushing buffers");
       this.render.gal.flush();
 
       // 执行渲染
+      // console.log("Rendering");
       this.render.gal.render();
 
+      // console.log("Draw elements completed");
     } catch (error) {
       console.error("Error during drawing:", error);
     }
